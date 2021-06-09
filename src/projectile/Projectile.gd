@@ -7,11 +7,16 @@ class_name Projectile
 signal Spawned(projectile, pos, info)
 signal Despawned(projectile, pos)
 signal Destroyed(projectile, pos) #happens before despawn
+
 signal Impact(projectile, pos, impact_info)
+signal Pierced(projectile, pos, pierce_info)
+signal Bounced(projectile, pos, bounce_info)
 
 
 
 export(float) var lifetime = 1.0
+export(bool) var rotate_parent : bool = false
+export(float) var mass : float = 1.0
 
 export(int, LAYERS_2D_PHYSICS) var collision_layer
 export(bool) var collide_with_bodies = true
@@ -20,7 +25,8 @@ export(float) var margin : float = 0.0
 export(int) var max_results : int = 6
 
 export(int, "Impact", "Bounce", "Pierce") var move_behaviour : int = 0
-
+export(int) var bounce_count = 0 #-1 = infinite bounces / 0 = no bounce
+export(int) var pierce_count = 0 #-1 = infinite pierces / 0 = no pierce
 
 
 func isPiercing() -> bool:
@@ -67,6 +73,12 @@ func _spawn(pos : Vector2, rot : float, info : Dictionary = {}) -> void:
 	_lifetime_timer = lifetime
 	visible = true
 	_destroyed = false
+	
+	global_position = pos
+	_lin_vel = Vector2(100, 0).rotated(rot) * 5
+	
+	if rotate_parent:
+		global_rotation = rot
 
 func _despawn() -> void:
 	emit_signal("Despawned", self, global_position)
@@ -81,16 +93,31 @@ func _destroy() -> void:
 	_destroyed = true
 	_lifetime_timer = 0.0
 	visible = false
+	
+	_lin_vel = Vector2.ZERO
+	_ang_vel = 0.0
 	call_deferred("_despawn")
 
-func _impact(impact_info : Dictionary) -> void:
-	#impact stuff comes here
-	
-	#last
+
+func _impact(impact_info : Dictionary, delta : float, rest_fraction : float) -> void:
 	emit_signal("Impact", self, impact_info)
 	onImpact(impact_info)
+	global_position += _lin_vel * delta * rest_fraction
+	_destroy()
 
+func _pierce(pierce_info : Dictionary, delta : float, rest_fraction : float) -> void:
+	emit_signal("Pierced", self, pierce_info)
+	onPierce(pierce_info)
+	global_position += _lin_vel * delta * rest_fraction
 
+func _bounce(bounce_info : Dictionary, delta : float, rest_fraction : float) -> void:
+	emit_signal("Bounced", self, bounce_info)
+	onBounce(bounce_info)
+	
+	_lin_vel = _lin_vel.bounce(bounce_info.normal)
+	var bounce_pos : Vector2 = bounce_info.point
+	var bounce_vector : Vector2 = _lin_vel * delta * (1.0 - rest_fraction)
+	global_position = bounce_pos + bounce_vector
 
 
 func _process(delta: float) -> void:
@@ -102,7 +129,10 @@ func _process(delta: float) -> void:
 			_lifetime_timer = 0.0
 			_destroy()
 
-
+func _physics_process(delta):
+	move(delta)
+	if rotate_parent and _lin_vel != Vector2.ZERO:
+		global_rotation = _lin_vel.angle()
 
 
 #these are functions that work like signals and can be overridden in child classes
@@ -113,53 +143,63 @@ func onSpawned(info : Dictionary) -> void:
 func onDespawned() -> void:
 	pass
 
+func onDestroyed() -> void:
+	pass
+
+
 func onImpact(impact_info : Dictionary) -> void:
 	pass
 
-func onDestroyed() -> void:
+func onPierce(pierce_info : Dictionary) -> void:
+	pass
+
+func onBounce(bounce_info : Dictionary) -> void:
 	pass
 #--------------------------
 
 
 func move(delta : float) -> void:
-	var motion : Vector2 = _lin_vel * delta
-	var result : Array = checkMove(motion)
-	var fraction : float = result[1] 
+	if _lin_vel == Vector2.ZERO: return
 	
-	if  fraction >= 1.0: #no collision
-		global_position += motion * fraction
-		global_rotation += _ang_vel * delta * fraction
+	var ang_motion : float = _ang_vel * delta
+	_lin_vel = _lin_vel.rotated(ang_motion)
 	
-	else: #collision
-		var collision : Dictionary = collide()
+	var lin_motion : Vector2 = _lin_vel * delta
+	var result : Array = checkMove(lin_motion)
+	var safe_fraction : float = result[0]
+	var unsafe_fraction : float = result[1]
+	var col_pos : Vector2 = global_position + lin_motion * unsafe_fraction
+	
+	if unsafe_fraction < 1.0: #collision
+		var collision : Dictionary = collide(col_pos)
 		if collision:
-#			emit_signal("Impact", self, global_position, collision)
-#			_impact(collision)
-			
+#			print("collision: ", collision)
 			match move_behaviour:
-				0: #impact
-					pass
-				1: #bounce
-					pass
-				2: #pierce
-					pass
-				_: 
-					pass
+				0: _impact(collision, delta, safe_fraction)
+				1: _bounce(collision, delta, safe_fraction)
+				2: _pierce(collision, delta, safe_fraction)
+				_: _impact(collision, delta, safe_fraction)
+	else:
+		global_position += lin_motion * safe_fraction
 
-func collide() -> Dictionary:
-	updateMoveQuery()
+
+func collide(col_pos : Vector2) -> Dictionary:
+	updateMoveQuery(col_pos, Vector2.ZERO)
 	return getSpaceState().get_rest_info(_move_query)
 
-
 func checkMove(motion : Vector2) -> Array:
-	updateMoveQuery(motion)
+	updateMoveQuery(global_position, motion)
 	return getSpaceState().cast_motion(_move_query)
 
-func updateMoveQuery(motion := Vector2.ZERO) -> void:
+func updateMoveQuery(pos : Vector2, motion := Vector2.ZERO) -> void:
 	if not _move_query:
 		_move_query = createMoveQuery()
 	
-	_move_query.transform = get_global_transform()
+	var rot : float = 0.0
+	if _lin_vel != Vector2.ZERO:
+		rot = _lin_vel.angle()
+		
+	_move_query.transform = Transform2D(rot, pos)
 	_move_query.motion = motion
 
 func createMoveQuery() -> Physics2DShapeQueryParameters:

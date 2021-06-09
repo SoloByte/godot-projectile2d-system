@@ -1,13 +1,16 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://src/TestScene.gd" type="Script" id=1]
-[ext_resource path="res://src/test-projectiles/deprecated/TEST_ProjectileLin.tscn" type="PackedScene" id=2]
+[ext_resource path="res://src/test-projectiles/ProjectileTest.tscn" type="PackedScene" id=2]
 
 [sub_resource type="RectangleShape2D" id=1]
 extents = Vector2( 50, 550 )
 
 [sub_resource type="RectangleShape2D" id=2]
 extents = Vector2( 1000, 50 )
+
+[sub_resource type="RectangleShape2D" id=3]
+extents = Vector2( 100, 100 )
 
 [node name="TestScene" type="Node2D"]
 script = ExtResource( 1 )
@@ -26,7 +29,9 @@ __meta__ = {
 [node name="Wall" type="Node2D" parent="."]
 modulate = Color( 0.341176, 0.341176, 0.341176, 1 )
 
-[node name="Left" type="StaticBody2D" parent="Wall"]
+[node name="Left" type="StaticBody2D" parent="Wall" groups=[
+"Bedrock",
+]]
 position = Vector2( -960, 0 )
 collision_layer = 2
 collision_mask = 24
@@ -37,7 +42,9 @@ shape = SubResource( 1 )
 [node name="Polygon2D" type="Polygon2D" parent="Wall/Left"]
 polygon = PoolVector2Array( -50, -550, 50, -550, 50, 550, -50, 550 )
 
-[node name="Right" type="StaticBody2D" parent="Wall"]
+[node name="Right" type="StaticBody2D" parent="Wall" groups=[
+"Bedrock",
+]]
 position = Vector2( 960, 0 )
 collision_layer = 2
 collision_mask = 24
@@ -48,7 +55,9 @@ shape = SubResource( 1 )
 [node name="Polygon2D" type="Polygon2D" parent="Wall/Right"]
 polygon = PoolVector2Array( -50, -550, 50, -550, 50, 550, -50, 550 )
 
-[node name="Top" type="StaticBody2D" parent="Wall"]
+[node name="Top" type="StaticBody2D" parent="Wall" groups=[
+"Bedrock",
+]]
 position = Vector2( 0, -540 )
 collision_layer = 2
 collision_mask = 24
@@ -59,7 +68,9 @@ shape = SubResource( 2 )
 [node name="Polygon2D" type="Polygon2D" parent="Wall/Top"]
 polygon = PoolVector2Array( -1000, -49, 1000, -50, 1000, 50, -1000, 49 )
 
-[node name="Bottom" type="StaticBody2D" parent="Wall"]
+[node name="Bottom" type="StaticBody2D" parent="Wall" groups=[
+"Bedrock",
+]]
 position = Vector2( 0, 540 )
 collision_layer = 2
 collision_mask = 24
@@ -83,3 +94,76 @@ polygon = PoolVector2Array( -64, 0, 0, -64, 64, -24, 128, -24, 128, 24, 64, 24, 
 
 [node name="ProjectileSpawnPos" type="Position2D" parent="Turret"]
 position = Vector2( 144, 0 )
+
+[node name="Obstacles" type="Node2D" parent="."]
+modulate = Color( 0.121569, 0.2, 0.521569, 0.454902 )
+
+[node name="Obstacle" type="StaticBody2D" parent="Obstacles"]
+collision_layer = 4
+collision_mask = 24
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Obstacle"]
+shape = SubResource( 3 )
+
+[node name="Polygon2D" type="Polygon2D" parent="Obstacles/Obstacle"]
+polygon = PoolVector2Array( -100, -100, 100, -100, 100, 100, -100, 100 )
+
+[node name="Obstacle2" type="StaticBody2D" parent="Obstacles"]
+position = Vector2( -176, -250 )
+rotation = -0.742288
+collision_layer = 4
+collision_mask = 24
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Obstacle2"]
+shape = SubResource( 3 )
+
+[node name="Polygon2D" type="Polygon2D" parent="Obstacles/Obstacle2"]
+polygon = PoolVector2Array( -100, -100, 100, -100, 100, 100, -100, 100 )
+
+[node name="Obstacle3" type="StaticBody2D" parent="Obstacles"]
+position = Vector2( 430, 56 )
+rotation = -0.742288
+collision_layer = 4
+collision_mask = 24
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Obstacle3"]
+shape = SubResource( 3 )
+
+[node name="Polygon2D" type="Polygon2D" parent="Obstacles/Obstacle3"]
+polygon = PoolVector2Array( -100, -100, 100, -100, 100, 100, -100, 100 )
+
+[node name="Obstacle4" type="StaticBody2D" parent="Obstacles"]
+position = Vector2( 96, 430 )
+rotation = 1.12716
+collision_layer = 4
+collision_mask = 24
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Obstacle4"]
+shape = SubResource( 3 )
+
+[node name="Polygon2D" type="Polygon2D" parent="Obstacles/Obstacle4"]
+polygon = PoolVector2Array( -100, -100, 100, -100, 100, 100, -100, 100 )
+
+[node name="Obstacle5" type="StaticBody2D" parent="Obstacles"]
+position = Vector2( -362, 258 )
+rotation = 1.12716
+collision_layer = 4
+collision_mask = 24
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Obstacle5"]
+shape = SubResource( 3 )
+
+[node name="Polygon2D" type="Polygon2D" parent="Obstacles/Obstacle5"]
+polygon = PoolVector2Array( -100, -100, 100, -100, 100, 100, -100, 100 )
+
+[node name="Obstacle6" type="StaticBody2D" parent="Obstacles"]
+position = Vector2( -44, 422 )
+rotation = 1.78961
+collision_layer = 4
+collision_mask = 24
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacles/Obstacle6"]
+shape = SubResource( 3 )
+
+[node name="Polygon2D" type="Polygon2D" parent="Obstacles/Obstacle6"]
+polygon = PoolVector2Array( -100, -100, 100, -100, 100, 100, -100, 100 )
