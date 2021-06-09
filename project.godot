@@ -17,7 +17,7 @@ _global_script_classes=[ {
 "base": "Projectile",
 "class": "ProjectileLinear",
 "language": "GDScript",
-"path": "res://src/projectile/ProjectileLinear.gd"
+"path": "res://src/projectile/deprecated/ProjectileLinear.gd"
 } ]
 _global_script_class_icons={
 "Projectile": "",

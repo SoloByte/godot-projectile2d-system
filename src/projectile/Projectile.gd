@@ -7,7 +7,7 @@ class_name Projectile
 signal Spawned(projectile, pos, info)
 signal Despawned(projectile, pos)
 signal Destroyed(projectile, pos) #happens before despawn
-signal Impact(projectile, impact_info)
+signal Impact(projectile, pos, impact_info)
 
 
 
@@ -19,8 +19,18 @@ export(bool) var collide_with_areas = false
 export(float) var margin : float = 0.0
 export(int) var max_results : int = 6
 
+export(int, "Impact", "Bounce", "Pierce") var move_behaviour : int = 0
 
 
+
+func isPiercing() -> bool:
+	return move_behaviour == 2
+
+func isBouncing() -> bool:
+	return move_behaviour == 1
+
+func isImpact() -> bool:
+	return move_behaviour == 0
 
 func getLifetimePercent() -> float:
 	if not hasLifetime():
@@ -37,7 +47,12 @@ func getForward() -> Vector2:
 	return get_global_transform().x
 
 
-var _col_query : Physics2DShapeQueryParameters = null
+
+
+var _move_query : Physics2DShapeQueryParameters = null
+var _lin_vel := Vector2.ZERO
+var _ang_vel : float = 0.0
+
 var _excluded : Array = []
 var _lifetime_timer : float = 0.0
 var _destroyed : bool = false
@@ -106,58 +121,125 @@ func onDestroyed() -> void:
 #--------------------------
 
 
+func move(delta : float) -> void:
+	var motion : Vector2 = _lin_vel * delta
+	var result : Array = checkMove(motion)
+	var fraction : float = result[1] 
+	
+	if  fraction >= 1.0: #no collision
+		global_position += motion * fraction
+		global_rotation += _ang_vel * delta * fraction
+	
+	else: #collision
+		var collision : Dictionary = collide()
+		if collision:
+#			emit_signal("Impact", self, global_position, collision)
+#			_impact(collision)
+			
+			match move_behaviour:
+				0: #impact
+					pass
+				1: #bounce
+					pass
+				2: #pierce
+					pass
+				_: 
+					pass
 
-#COLLISION ---------------------------------------------------------------------
-func addExclusion(obj) -> void:
-	_excluded.append(obj)
-
-func removeExclusion(obj) -> void:
-	if not _excluded or _excluded.size() <= 0: return
-	var index : int = _excluded.find(obj)
-	removeExclusionIndex(index)
-
-func removeExclusionIndex(index : int) -> void:
-	if not _excluded or _excluded.size() <= 0: return
-	if index < 0 or index >= _excluded.size(): return
-	_excluded.remove(index)
-
-
-func getQuery() -> Physics2DShapeQueryParameters:
-	if not _col_query:
-		setQuery(createQuerySimple())
-	return _col_query
-
-func setQuery(query : Physics2DShapeQueryParameters) -> void:
-	_col_query = query
-
-
-func updateQuery(pos : Vector2, rot : float) -> void:
-	updateCustomQuery(getQuery(), pos, rot, _excluded)
-
-func updateCustomQuery(query : Physics2DShapeQueryParameters, pos : Vector2, rot : float, excluded = []) -> void:
-	if not query: return
-	query.transform = Transform2D(rot, pos)
-	query.exclude = excluded
+func collide() -> Dictionary:
+	updateMoveQuery()
+	return getSpaceState().get_rest_info(_move_query)
 
 
-func createQuerySimple() -> Physics2DShapeQueryParameters:
-	return createQuery(global_position, global_rotation, Vector2.ZERO, shape, collision_layer, _excluded, collide_with_bodies, collide_with_areas, margin)
+func checkMove(motion : Vector2) -> Array:
+	updateMoveQuery(motion)
+	return getSpaceState().cast_motion(_move_query)
 
-func createQuery(_pos : Vector2, _rot : float, _motion : Vector2, _shape, _collision_layer, _exclude : Array = [], _collide_with_bodies : bool = true, _collide_with_areas : bool = false, _margin : float = 0.0) -> Physics2DShapeQueryParameters:
+func updateMoveQuery(motion := Vector2.ZERO) -> void:
+	if not _move_query:
+		_move_query = createMoveQuery()
+	
+	_move_query.transform = get_global_transform()
+	_move_query.motion = motion
+
+func createMoveQuery() -> Physics2DShapeQueryParameters:
 	var query := Physics2DShapeQueryParameters.new()
-	query.set_shape(_shape)
-	query.motion = _motion
-	query.collision_layer = _collision_layer
-	query.exclude = _exclude
-	query.collide_with_bodies = _collide_with_bodies
-	query.collide_with_areas = _collide_with_areas
-	query.transform = Transform2D(_rot, _pos)
-	query.margin = _margin
+	query.set_shape(shape)
+	query.motion = Vector2.ZERO
+	query.collision_layer = collision_layer
+	query.exclude = _excluded
+	query.collide_with_bodies = collide_with_bodies
+	query.collide_with_areas = collide_with_areas
+	query.transform = get_global_transform()
+	query.margin = margin
 	return query
+
+
+
 
 
 func getSpaceState() ->  Physics2DDirectSpaceState:
 	return get_world_2d().direct_space_state
+
+
+
+
+
+
+
+
+
+
+
+
+#COLLISION ---------------------------------------------------------------------
+#func addExclusion(obj) -> void:
+#	_excluded.append(obj)
+#
+#func removeExclusion(obj) -> void:
+#	if not _excluded or _excluded.size() <= 0: return
+#	var index : int = _excluded.find(obj)
+#	removeExclusionIndex(index)
+#
+#func removeExclusionIndex(index : int) -> void:
+#	if not _excluded or _excluded.size() <= 0: return
+#	if index < 0 or index >= _excluded.size(): return
+#	_excluded.remove(index)
+#
+#
+#func getQuery() -> Physics2DShapeQueryParameters:
+#	if not _move_query:
+#		setQuery(createQuerySimple())
+#	return _move_query
+#
+#func setQuery(query : Physics2DShapeQueryParameters) -> void:
+#	_move_query = query
+#
+#
+#func updateQuery(pos : Vector2, rot : float) -> void:
+#	updateCustomQuery(getQuery(), pos, rot, _excluded)
+#
+#func updateCustomQuery(query : Physics2DShapeQueryParameters, pos : Vector2, rot : float, excluded = []) -> void:
+#	if not query: return
+#	query.transform = Transform2D(rot, pos)
+#	query.exclude = excluded
+#
+#
+#func createQuerySimple() -> Physics2DShapeQueryParameters:
+#	return createQuery(global_position, global_rotation, Vector2.ZERO, shape, collision_layer, _excluded, collide_with_bodies, collide_with_areas, margin)
+#
+#func createQuery(_pos : Vector2, _rot : float, _motion : Vector2, _shape, _collision_layer, _exclude : Array = [], _collide_with_bodies : bool = true, _collide_with_areas : bool = false, _margin : float = 0.0) -> Physics2DShapeQueryParameters:
+#	var query := Physics2DShapeQueryParameters.new()
+#	query.set_shape(_shape)
+#	query.motion = _motion
+#	query.collision_layer = _collision_layer
+#	query.exclude = _exclude
+#	query.collide_with_bodies = _collide_with_bodies
+#	query.collide_with_areas = _collide_with_areas
+#	query.transform = Transform2D(_rot, _pos)
+#	query.margin = _margin
+#	return query
+
 
 #-------------------------------------------------------------------------------
 
@@ -238,9 +320,9 @@ static func filterResultsAdv(result : Array) -> Dictionary:
 #	return _exp_shape
 #
 #func getExpQuery() -> Physics2DShapeQueryParameters:
-#	if not _col_query:
+#	if not _move_query:
 #		setExpQuery(createExpQuerySimple())
-#	return _col_query
+#	return _move_query
 #
 #func setExpQuery(query : Physics2DShapeQueryParameters) -> void:
 #	_exp_query = query
@@ -275,7 +357,7 @@ static func filterResultsAdv(result : Array) -> Dictionary:
 #
 #
 #
-#var _col_query : Physics2DShapeQueryParameters = null
+#var _move_query : Physics2DShapeQueryParameters = null
 #var _exp_shape : CircleShape2D = null
 #var _excluded : Array = []
 #
@@ -309,12 +391,12 @@ static func filterResultsAdv(result : Array) -> Dictionary:
 #
 #
 #func getQuery() -> Physics2DShapeQueryParameters:
-#	if not _col_query:
+#	if not _move_query:
 #		setQuery(createQuerySimple())
-#	return _col_query
+#	return _move_query
 #
 #func setQuery(query : Physics2DShapeQueryParameters) -> void:
-#	_col_query = query
+#	_move_query = query
 #
 #
 #func updateQuery(pos : Vector2, rot : float, r : float = -1.0) -> void:
