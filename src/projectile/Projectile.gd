@@ -13,7 +13,7 @@ signal Pierced(projectile, pos, pierce_info)
 signal Bounced(projectile, pos, bounce_info)
 
 
-
+#export(int, 1, 5) var iterations : int = 1
 export(float) var lifetime = 1.0
 export(bool) var rotate_parent : bool = false
 export(float) var mass : float = 1.0
@@ -75,7 +75,7 @@ func _spawn(pos : Vector2, rot : float, info : Dictionary = {}) -> void:
 	_destroyed = false
 	
 	global_position = pos
-	_lin_vel = Vector2(100, 0).rotated(rot) * 5
+	_lin_vel = Vector2(100, 0).rotated(rot) * 15
 	
 	if rotate_parent:
 		global_rotation = rot
@@ -104,20 +104,22 @@ func _impact(impact_info : Dictionary, delta : float, rest_fraction : float) -> 
 	onImpact(impact_info)
 	global_position += _lin_vel * delta * rest_fraction
 	_destroy()
+#	print("impact")
 
 func _pierce(pierce_info : Dictionary, delta : float, rest_fraction : float) -> void:
 	emit_signal("Pierced", self, pierce_info)
 	onPierce(pierce_info)
 	global_position += _lin_vel * delta * rest_fraction
+#	print("pierce")
 
 func _bounce(bounce_info : Dictionary, delta : float, rest_fraction : float) -> void:
 	emit_signal("Bounced", self, bounce_info)
 	onBounce(bounce_info)
 	
 	_lin_vel = _lin_vel.bounce(bounce_info.normal)
-	var bounce_pos : Vector2 = bounce_info.point
-	var bounce_vector : Vector2 = _lin_vel * delta * (1.0 - rest_fraction)
-	global_position = bounce_pos + bounce_vector
+	#bounce maybe needs to make more cast until end of motion is reached
+	global_position += _lin_vel * delta * rest_fraction
+#	print("bounce")
 
 
 func _process(delta: float) -> void:
@@ -130,6 +132,8 @@ func _process(delta: float) -> void:
 			_destroy()
 
 func _physics_process(delta):
+#	for i in range(iterations):
+#		move(delta / iterations)
 	move(delta)
 	if rotate_parent and _lin_vel != Vector2.ZERO:
 		global_rotation = _lin_vel.angle()
@@ -166,21 +170,26 @@ func move(delta : float) -> void:
 	
 	var lin_motion : Vector2 = _lin_vel * delta
 	var result : Array = checkMove(lin_motion)
+#	print("result: ", result)
 	var safe_fraction : float = result[0]
 	var unsafe_fraction : float = result[1]
-	var col_pos : Vector2 = global_position + lin_motion * unsafe_fraction
+	var col_pos : Vector2 = global_position + lin_motion * unsafe_fraction * 1.1 
 	
 	if unsafe_fraction < 1.0: #collision
 		var collision : Dictionary = collide(col_pos)
 		if collision:
-#			print("collision: ", collision)
 			match move_behaviour:
 				0: _impact(collision, delta, safe_fraction)
 				1: _bounce(collision, delta, safe_fraction)
 				2: _pierce(collision, delta, safe_fraction)
 				_: _impact(collision, delta, safe_fraction)
+		else:
+#			push_warning("projectile collision undefined!")
+#			global_position += lin_motion * safe_fraction
+			global_position += lin_motion * safe_fraction * 0.1
+			print("problem: ", result)
 	else:
-		global_position += lin_motion * safe_fraction
+		global_position += lin_motion# * safe_fraction
 
 
 func collide(col_pos : Vector2) -> Dictionary:
