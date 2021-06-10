@@ -27,7 +27,7 @@ __meta__ = {
 }
 
 [node name="Wall" type="Node2D" parent="."]
-modulate = Color( 0.341176, 0.341176, 0.341176, 1 )
+modulate = Color( 0.341176, 0.341176, 0.341176, 0.392157 )
 
 [node name="Left" type="StaticBody2D" parent="Wall" groups=[
 "Bedrock",
