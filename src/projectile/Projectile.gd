@@ -177,16 +177,18 @@ func move(delta : float) -> void:
 	
 	if unsafe_fraction < 1.0: #collision
 		var collision : Dictionary = collide(col_pos)
-		if collision:
+		if collision and collision.size() > 0:
 			match move_behaviour:
 				0: _impact(collision, delta, safe_fraction)
 				1: _bounce(collision, delta, safe_fraction)
 				2: _pierce(collision, delta, safe_fraction)
 				_: _impact(collision, delta, safe_fraction)
 		else:
-#			push_warning("projectile collision undefined!")
-#			global_position += lin_motion * safe_fraction
-			global_position += lin_motion * safe_fraction * 0.1
+			global_position += lin_motion * unsafe_fraction * 0.1
+#			if safe_fraction <= 0.0:
+#				global_position += lin_motion * unsafe_fraction * 0.1
+#			else:
+#				global_position += lin_motion * safe_fraction * 0.1
 			print("problem: ", result)
 	else:
 		global_position += lin_motion# * safe_fraction
