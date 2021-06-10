@@ -22,7 +22,7 @@ export(int, LAYERS_2D_PHYSICS) var collision_layer
 export(bool) var collide_with_bodies = true
 export(bool) var collide_with_areas = false
 export(float) var margin : float = 0.0
-export(int) var max_results : int = 6
+export(int) var max_results : int = 12
 
 export(int, "Impact", "Bounce", "Pierce") var move_behaviour : int = 0
 export(int) var bounce_count = 0 #-1 = infinite bounces / 0 = no bounce
@@ -170,10 +170,10 @@ func move(delta : float) -> void:
 	
 	var lin_motion : Vector2 = _lin_vel * delta
 	var result : Array = checkMove(lin_motion)
-#	print("result: ", result)
+	
 	var safe_fraction : float = result[0]
 	var unsafe_fraction : float = result[1]
-	var col_pos : Vector2 = global_position + lin_motion * unsafe_fraction * 1.1 
+	var col_pos : Vector2 = global_position + lin_motion * unsafe_fraction# * 1.1 
 	
 	if unsafe_fraction < 1.0: #collision
 		var collision : Dictionary = collide(col_pos)
@@ -196,7 +196,30 @@ func move(delta : float) -> void:
 
 func collide(col_pos : Vector2) -> Dictionary:
 	updateMoveQuery(col_pos, Vector2.ZERO)
-	return getSpaceState().get_rest_info(_move_query)
+	var points : Array = getSpaceState().collide_shape(_move_query, max_results)
+	var target_point : Vector2
+	if not points or points.size() < 0:
+		print("no col points")
+		return {}
+	
+	var ray_start : Vector2 = global_position
+#	print("points #", points.size())
+	#finding closest collision point
+	if points.size() == 1:
+		target_point = points[0]
+	else:
+		var closest_point : Vector2 = points[0]
+		var closest_distance_sq : float = -1.0
+		for p in points:
+			var dis_sq : float = (p - ray_start).length_squared()
+			if closest_distance_sq < 0.0 or dis_sq < closest_distance_sq:
+				closest_distance_sq = dis_sq
+				closest_point = p
+		
+		target_point = closest_point
+	
+	return getSpaceState().intersect_ray(ray_start, target_point, _excluded, collision_layer, collide_with_bodies, collide_with_areas)
+
 
 func checkMove(motion : Vector2) -> Array:
 	updateMoveQuery(global_position, motion)
