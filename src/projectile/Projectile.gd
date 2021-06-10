@@ -110,15 +110,23 @@ func _pierce(pierce_info : Dictionary, delta : float, rest_fraction : float) -> 
 	emit_signal("Pierced", self, pierce_info)
 	onPierce(pierce_info)
 	global_position += _lin_vel * delta * rest_fraction
+	move(delta, 1.0 - rest_fraction)
 #	print("pierce")
 
 func _bounce(bounce_info : Dictionary, delta : float, rest_fraction : float) -> void:
 	emit_signal("Bounced", self, bounce_info)
 	onBounce(bounce_info)
 	
-	_lin_vel = _lin_vel.bounce(bounce_info.normal)
+	var n : Vector2 = bounce_info.normal
+	if not n.is_normalized():
+		print("bounce normal not normalized! n: ", n)
+		_destroy()
+		return
+	else:
+		_lin_vel = _lin_vel.bounce(n)
 	#bounce maybe needs to make more cast until end of motion is reached
 	global_position += _lin_vel * delta * rest_fraction
+	move(delta, 1.0 - rest_fraction) #stack overflow....
 #	print("bounce")
 
 
@@ -162,13 +170,14 @@ func onBounce(bounce_info : Dictionary) -> void:
 #--------------------------
 
 
-func move(delta : float) -> void:
+func move(delta : float, fraction : float = 1.0) -> void:
+	if fraction <= 0.0: return
 	if _lin_vel == Vector2.ZERO: return
 	
 	var ang_motion : float = _ang_vel * delta
 	_lin_vel = _lin_vel.rotated(ang_motion)
 	
-	var lin_motion : Vector2 = _lin_vel * delta
+	var lin_motion : Vector2 = _lin_vel * delta * fraction
 	var result : Array = checkMove(lin_motion)
 	
 	var safe_fraction : float = result[0]
@@ -184,12 +193,19 @@ func move(delta : float) -> void:
 				2: _pierce(collision, delta, safe_fraction)
 				_: _impact(collision, delta, safe_fraction)
 		else:
-			global_position += lin_motion * unsafe_fraction * 0.1
+			if safe_fraction <= 0.0:
+				print("destroy ", result)
+				_destroy()
+				return
+			
+			print("invalid collision: ", result)
+			global_position += lin_motion * safe_fraction#unsafe_fraction * 0.1
+			move(delta, 1.0 - safe_fraction)
 #			if safe_fraction <= 0.0:
 #				global_position += lin_motion * unsafe_fraction * 0.1
 #			else:
 #				global_position += lin_motion * safe_fraction * 0.1
-			print("problem: ", result)
+#			print("problem: ", result)
 	else:
 		global_position += lin_motion# * safe_fraction
 
@@ -203,22 +219,26 @@ func collide(col_pos : Vector2) -> Dictionary:
 		return {}
 	
 	var ray_start : Vector2 = global_position
-#	print("points #", points.size())
-	#finding closest collision point
-	if points.size() == 1:
-		target_point = points[0]
-	else:
-		var closest_point : Vector2 = points[0]
-		var closest_distance_sq : float = -1.0
-		for p in points:
-			var dis_sq : float = (p - ray_start).length_squared()
-			if closest_distance_sq < 0.0 or dis_sq < closest_distance_sq:
-				closest_distance_sq = dis_sq
-				closest_point = p
-		
-		target_point = closest_point
 	
-	return getSpaceState().intersect_ray(ray_start, target_point, _excluded, collision_layer, collide_with_bodies, collide_with_areas)
+	var safeguard : Dictionary
+	for p in points:
+		var ray_info : Dictionary = getSpaceState().intersect_ray(ray_start, p, _excluded, collision_layer, collide_with_bodies, collide_with_areas)
+		if ray_info and ray_info.size() > 0:
+			if not isBouncing():
+				return ray_info
+			else:
+				if ray_info.normal != Vector2.ZERO:
+					return ray_info
+				else:
+					if not safeguard:
+						safeguard = ray_info
+	
+	if not safeguard:
+		print("all rays missed")
+		return {}
+	else:
+		print("safeguard ray info returned: ", safeguard)
+		return safeguard
 
 
 func checkMove(motion : Vector2) -> Array:
