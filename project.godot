@@ -12,16 +12,22 @@ _global_script_classes=[ {
 "base": "CollisionShape2D",
 "class": "Projectile",
 "language": "GDScript",
-"path": "res://src/projectile/Projectile.gd"
+"path": "res://src/final/projectile/Projectile.gd"
+}, {
+"base": "Projectile",
+"class": "ProjectileCurve",
+"language": "GDScript",
+"path": "res://src/final/projectile/ProjectileCurve.gd"
 } ]
 _global_script_class_icons={
-"Projectile": ""
+"Projectile": "",
+"ProjectileCurve": ""
 }
 
 [application]
 
 config/name="godot-projectile2d-system"
-run/main_scene="res://src/TestScene.tscn"
+run/main_scene="res://src/demo/test-scenes/TestScene.tscn"
 config/icon="res://icon.png"
 
 [display]

@@ -47,7 +47,7 @@ func isImpact() -> bool:
 func getLifetimePercent() -> float:
 	if not hasLifetime():
 		return 0.0
-	return _lifetime_timer / lifetime
+	return clamp(_lifetime_timer / lifetime, 0.0, 1.0)
 
 func hasLifetime() -> bool:
 	return lifetime > 0.0
@@ -79,7 +79,14 @@ var _pierces : int = 0
 
 
 
+
+onready var rng := RandomNumberGenerator.new()
+
+
+
+
 func _setup(info : Dictionary = {}) -> void:
+	rng.randomize()
 	_destroyed = true
 	_lifetime_timer = 0.0
 	visible = false
@@ -101,11 +108,10 @@ func _spawn(pos : Vector2, rot : float, info : Dictionary = {}) -> void:
 	_pierces = 0
 	
 	global_position = pos
-	
 	if rotate_parent:
 		global_rotation = rot
 	
-	_lin_vel = Vector2(100, 0).rotated(rot) * 15
+#	_lin_vel = Vector2(100, 0).rotated(rot) * 15
 	
 	set_process(true)
 	set_physics_process(true)
@@ -193,13 +199,19 @@ func _process(delta: float) -> void:
 			_destroy()
 
 func _physics_process(delta):
-#	for i in range(iterations):
-#		move(delta / iterations)
+	updateAngularVelocity(delta)
+	updateLinearVelocity(delta)
 	move(delta)
 	if rotate_parent and _lin_vel != Vector2.ZERO:
 		global_rotation = _lin_vel.angle()
 
 
+
+func updateAngularVelocity(delta : float) -> void:
+	pass
+
+func updateLinearVelocity(delta : float) -> void:
+	pass
 
 
 #these are functions that work like signals and can be overridden in child classes
