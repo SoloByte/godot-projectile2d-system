@@ -9,7 +9,10 @@ extents = Vector2( 16, 6 )
 shape = SubResource( 1 )
 lifetime = -1.0
 rotate_parent = true
+bedrock_group = ""
 collision_layer = 6
+move_behaviour = 1
+bounce_count = 5
 
 [node name="Polygon2D" type="Polygon2D" parent="." index="0"]
 polygon = PoolVector2Array( -16, -6, 10, -6, 16, 0, 10, 6, -16, 6 )

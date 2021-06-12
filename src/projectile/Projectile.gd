@@ -12,6 +12,7 @@ signal Impact(projectile, pos, impact_info)
 signal Pierced(projectile, pos, pierce_info)
 signal Bounced(projectile, pos, bounce_info)
 
+signal Exploded(projectile, pos, r, bodies)
 
 
 
@@ -89,12 +90,15 @@ func _spawn(pos : Vector2, rot : float, info : Dictionary = {}) -> void:
 	_bounces = 0
 	_pierces = 0
 	
-	
 	global_position = pos
-	_lin_vel = Vector2(100, 0).rotated(rot) * 15
 	
 	if rotate_parent:
 		global_rotation = rot
+	
+	_lin_vel = Vector2(100, 0).rotated(rot) * 15
+	
+	set_process(true)
+	set_physics_process(true)
 
 func _despawn() -> void:
 	emit_signal("Despawned", self, global_position)
@@ -112,6 +116,10 @@ func _destroy() -> void:
 	
 	_lin_vel = Vector2.ZERO
 	_ang_vel = 0.0
+	
+	set_process(false)
+	set_physics_process(false)
+	
 	call_deferred("_despawn")
 
 
@@ -120,14 +128,14 @@ func _destroy() -> void:
 func _impact(impact_info : Dictionary, delta : float, rest_fraction : float) -> void:
 	emit_signal("Impact", self, impact_info)
 	onImpact(impact_info)
-#	print("impact")
+	
 	global_position += _lin_vel * delta * rest_fraction
 	_destroy()
 
 func _pierce(pierce_info : Dictionary, delta : float, rest_fraction : float) -> void:
 	emit_signal("Pierced", self, pierce_info)
 	onPierce(pierce_info)
-#	print("pierce")
+	
 	if hasPiercesLeft():
 		global_position += _lin_vel * delta * rest_fraction
 		_pierces += 1
@@ -137,7 +145,6 @@ func _pierce(pierce_info : Dictionary, delta : float, rest_fraction : float) -> 
 func _bounce(bounce_info : Dictionary, delta : float, rest_fraction : float) -> void:
 	emit_signal("Bounced", self, bounce_info)
 	onBounce(bounce_info)
-#	print("bounce")
 	
 	if hasBouncesLeft():
 		var n : Vector2 = bounce_info.normal
@@ -153,6 +160,19 @@ func _bounce(bounce_info : Dictionary, delta : float, rest_fraction : float) -> 
 		_impact(bounce_info, delta, rest_fraction)
 
 
+func _explode(query : Physics2DShapeQueryParameters, max_results : int = 12) -> Dictionary:
+	var r : float = query.shape.radius
+	var pos : Vector2 = query.transform.get_origin()
+	
+	var bodies : Dictionary = circleCast(query, max_results)
+	
+	if not bodies or bodies.size() <= 0: 
+		return {}
+	
+	emit_signal("Exploded", self, pos, r, bodies)
+	onExploded(bodies, pos, r)
+	
+	return bodies
 
 
 func _process(delta: float) -> void:
@@ -193,6 +213,9 @@ func onPierce(pierce_info : Dictionary) -> void:
 	pass
 
 func onBounce(bounce_info : Dictionary) -> void:
+	pass
+
+func onExploded(bodies : Dictionary, pos : Vector2, r : float) -> void:
 	pass
 #--------------------------
 
@@ -239,8 +262,6 @@ func move(delta : float, fraction : float = 1.0) -> void:
 
 func collide(col_pos : Vector2) -> Dictionary:
 	updateMoveQuery(col_pos, Vector2.ZERO)
-#	var q = createMoveQuery()
-#	q.transform = Transform2D(_lin_vel.angle(), col_pos)
 	var points : Array = getSpaceState().collide_shape(_move_query, max_results)
 	var target_point : Vector2
 	if not points or points.size() < 0:
@@ -275,11 +296,7 @@ func collide(col_pos : Vector2) -> Dictionary:
 
 func checkMove(motion : Vector2) -> Array:
 	updateMoveQuery(global_position, motion)
-#	var q = createMoveQuery()
-#	q.transform = Transform2D(_lin_vel.angle(), global_position)
-#	q.motion = motion
 	return getSpaceState().cast_motion(_move_query)
-
 
 
 
@@ -295,21 +312,81 @@ func updateMoveQuery(pos : Vector2, motion := Vector2.ZERO) -> void:
 	_move_query.motion = motion
 
 func createMoveQuery() -> Physics2DShapeQueryParameters:
-	var query := Physics2DShapeQueryParameters.new()
-	query.set_shape(shape)
-	query.motion = Vector2.ZERO
-	query.collision_layer = collision_layer
-	query.exclude = _excluded
-	query.collide_with_bodies = collide_with_bodies
-	query.collide_with_areas = collide_with_areas
-	query.transform = get_global_transform()
-	query.margin = margin
-	return query
+#	var query := Physics2DShapeQueryParameters.new()
+#	query.set_shape(shape)
+#	query.motion = Vector2.ZERO
+#	query.collision_layer = collision_layer
+#	query.exclude = _excluded
+#	query.collide_with_bodies = collide_with_bodies
+#	query.collide_with_areas = collide_with_areas
+#	query.transform = get_global_transform()
+#	query.margin = margin
+	return createQueryTrans(get_global_transform(), shape, collision_layer, Vector2.ZERO, collide_with_bodies, collide_with_areas, _excluded, margin)
 
 
 
 func getSpaceState() ->  Physics2DDirectSpaceState:
 	return get_world_2d().direct_space_state
+
+
+
+func circleCast(query, max_results : int = 12) -> Dictionary:
+	var cast_info : Array = getSpaceState().intersect_shape(query, max_results)
+	return filterResultsAdv(cast_info)
+
+
+
+
+static func filterResultsAdv(result : Array) -> Dictionary:
+	if not result or result.size() <= 0:
+		return {}
+
+	var filtered : Dictionary = {}
+	if result.size() == 1:
+		filtered[result[0].collider_id] = {"body" : result[0].collider, "shapes" : [result[0].shape]}
+		return filtered
+
+	for r in result:
+		if filtered.has(r.collider_id):
+			filtered[r.collider_id].shapes.append(r.shape)
+		else:
+			filtered[r.collider_id] = {"body" : r.collider, "shapes" : [r.shape]}
+
+	return filtered
+
+static func createQuery(pos : Vector2, cast_shape, col_layer : int, rot : float = 0.0, motion := Vector2.ZERO, col_with_bodies : bool = true, col_with_areas : bool = false, excluded : Array = [], margin : float = 0.0) -> Physics2DShapeQueryParameters:
+	var query := Physics2DShapeQueryParameters.new()
+	query.set_shape(cast_shape)
+	query.motion = motion
+	query.collision_layer = col_layer
+	query.exclude = excluded
+	query.collide_with_bodies = col_with_bodies
+	query.collide_with_areas = col_with_areas
+	query.transform = Transform2D(rot, pos)
+	query.margin = margin
+	return query
+
+static func createQueryTrans(trans : Transform2D, cast_shape, col_layer : int, motion := Vector2.ZERO, col_with_bodies : bool = true, col_with_areas : bool = false, excluded : Array = [], margin : float = 0.0) -> Physics2DShapeQueryParameters:
+	var query := Physics2DShapeQueryParameters.new()
+	query.set_shape(cast_shape)
+	query.motion = motion
+	query.collision_layer = col_layer
+	query.exclude = excluded
+	query.collide_with_bodies = col_with_bodies
+	query.collide_with_areas = col_with_areas
+	query.transform = trans
+	query.margin = margin
+	return query
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -328,23 +405,29 @@ func getSpaceState() ->  Physics2DDirectSpaceState:
 #			filtered.append(body)
 #
 #	return filtered
-#
-#static func filterResultsAdv(result : Array) -> Dictionary:
-#	if not result or result.size() <= 0:
-#		return {}
-#
-#	var filtered : Dictionary = {}
-#	if result.size() == 1:
-#		filtered[result[0].collider_id] = {"body" : result[0].collider, "shapes" : [result[0].shape]}
-#		return filtered
-#
-#	for r in result:
-#		if filtered.has(r.collider_id):
-#			filtered[r.collider_id].shapes.append(r.shape)
-#		else:
-#			filtered[r.collider_id] = {"body" : r.collider, "shapes" : [r.shape]}
-#
-#	return filtered
-#
 
 
+
+
+
+
+
+#func updateExpQuery(pos : Vector2, r : float) -> void:
+#	_exp_query.transform = Transform2D(0.0, pos)
+#	_exp_query.shape.radius = r
+#
+#func createExpQuery(pos : Vector2, r : float, col_layer : int, col_with_bodies : bool = true, col_with_areas : bool = false, excluded : Array = []) -> Physics2DShapeQueryParameters:
+#	var query := Physics2DShapeQueryParameters.new()
+#
+#	var circle := CircleShape2D.new()
+#	circle.radius = r
+#	query.set_shape(circle)
+#
+#	query.motion = Vector2.ZERO
+#	query.collision_layer = col_layer
+#	query.exclude = excluded
+#	query.collide_with_bodies = col_with_bodies
+#	query.collide_with_areas = col_with_areas
+#	query.transform = Transform2D(0.0, pos)
+#	query.margin = 0.0
+#	return query
