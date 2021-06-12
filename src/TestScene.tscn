@@ -15,6 +15,7 @@ extents = Vector2( 100, 100 )
 [node name="TestScene" type="Node2D"]
 script = ExtResource( 1 )
 test_projectile = ExtResource( 2 )
+pool_instances = 200
 
 [node name="Floor" type="ColorRect" parent="."]
 margin_left = -1020.0

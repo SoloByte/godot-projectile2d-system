@@ -79,6 +79,16 @@ var _pierces : int = 0
 
 
 
+func _setup(info : Dictionary = {}) -> void:
+	_destroyed = true
+	_lifetime_timer = 0.0
+	visible = false
+	
+	_lin_vel = Vector2.ZERO
+	_ang_vel = 0.0
+	
+	set_process(false)
+	set_physics_process(false)
 
 func _spawn(pos : Vector2, rot : float, info : Dictionary = {}) -> void:
 	emit_signal("Spawned", self, pos, info)
@@ -103,8 +113,6 @@ func _spawn(pos : Vector2, rot : float, info : Dictionary = {}) -> void:
 func _despawn() -> void:
 	emit_signal("Despawned", self, global_position)
 	onDespawned()
-	
-	queue_free()
 
 func _destroy() -> void:
 	emit_signal("Destroyed", self, global_position)
@@ -149,7 +157,7 @@ func _bounce(bounce_info : Dictionary, delta : float, rest_fraction : float) -> 
 	if hasBouncesLeft():
 		var n : Vector2 = bounce_info.normal
 		if not n.is_normalized():
-			print("bounce normal not normalized! n: ", n)
+#			print("bounce normal not normalized! n: ", n)
 			_impact(bounce_info, delta, rest_fraction)
 			return
 		else:
@@ -239,7 +247,7 @@ func move(delta : float, fraction : float = 1.0) -> void:
 		var collision : Dictionary = collide(col_pos)
 		if collision and collision.size() > 0:
 			if collision.collider.is_in_group(bedrock_group):
-				print("bedrock hit")
+#				print("bedrock hit")
 				_impact(collision, delta, safe_fraction)
 				return
 			
@@ -250,11 +258,11 @@ func move(delta : float, fraction : float = 1.0) -> void:
 				_: _impact(collision, delta, safe_fraction)
 		else:
 			if safe_fraction <= 0.0:
-				print("destroy ", result)
+#				print("destroy ", result)
 				_destroy()
 				return
 			
-			print("invalid collision: ", result)
+#			print("invalid collision: ", result)
 			global_position += lin_motion * safe_fraction
 	else:
 		global_position += lin_motion
@@ -265,7 +273,7 @@ func collide(col_pos : Vector2) -> Dictionary:
 	var points : Array = getSpaceState().collide_shape(_move_query, max_results)
 	var target_point : Vector2
 	if not points or points.size() < 0:
-		print("no col points")
+#		print("no col points")
 		return {}
 	
 	var ray_start : Vector2 = global_position
@@ -282,15 +290,15 @@ func collide(col_pos : Vector2) -> Dictionary:
 				if ray_info.normal != Vector2.ZERO:
 					return ray_info #optimal path bouncing projectile
 				else:
-					print("normal problem p: ", p, " start: ", ray_start, " end: ", ray_end)
+#					print("normal problem p: ", p, " start: ", ray_start, " end: ", ray_end)
 					if not safeguard:
 						safeguard = ray_info
 	
 	if not safeguard:
-		print("all rays missed")
+#		print("all rays missed")
 		return {}
 	else:
-		print("safeguard ray info returned: ", safeguard)
+#		print("safeguard ray info returned: ", safeguard)
 		return safeguard
 
 
