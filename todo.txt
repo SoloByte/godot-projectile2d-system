@@ -1,0 +1,37 @@
+
+
+
+1) Raycast Bullet
+    - Raycast Node or Node2D/Position2D with using DirectSpaceState CastRay function
+    - Extended ProjectileRayPhysics and ProjectileRayCurve
+
+2) Swarm Node
+    - Uses Visual Server and Physics Server directly 
+    - has vars for defining the shape of the object and some projectile properties
+    - has a some kind of pooled array for all objects 
+    - loops through all objects and updates them
+    - objects follow haxeflixel syntax with alive(updated, not updated) and exists(visible, not visible) state
+    - objects have func ready() -> bool:
+        return not alive and not exists
+    - simple interface with: 
+        . spawn(pos, rot, lifetime) -> spawn sets alive and exists to true
+        . kill(id), killAll() -> kill sets alive and exists to false
+    - signal Collision(col_info), Spawned(projectile), Despawed(projectile)
+
+    - Basically this is a node that takes care of multiple instances of the same type (each swarm node only defines one projectile)
+
+3) Swarm Node Alternative
+    - same as swarm node but without visual/ physics server part
+    - takes a packed scene (projectile) and handles their pooling
+    - projectiles cant use _process and _physics_process funcs -> need to implement update and physics_update funcs
+    - swarmer calls update/physics_update on all alive&existing projectiles
+    - projectiles need setup, spawn, kill funcs
+    - projectiles need signal for collision, killed, spawned
+    - so the launcher can later use swarm node for pooling the projectiles it shoots
+
+
+4) Rigidbody Projectiles
+
+5) Kinematic Body Projectiles
+
+6) Physics Object Projectiles ?
